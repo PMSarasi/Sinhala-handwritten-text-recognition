@@ -2,6 +2,7 @@ import os
 import torch
 import zipfile
 import gdown
+import requests
 from transformers import VisionEncoderDecoderModel, TrOCRProcessor, GenerationConfig
 from PIL import Image, ImageOps
 
@@ -18,18 +19,58 @@ def load_sinhala_ocr_model():
     MODEL_FOLDER = "./final_trocr_sinhala_model"
     ZIP_FILE_NAME = "trocr_sinhala_handwriting_model.zip"
     
-    # 🔍 REPLACE THIS VALUE WITH YOUR ACTUAL GOOGLE DRIVE FILE ID
-    GDRIVE_FILE_ID = "https://drive.google.com/file/d/1Oparm6c06aFFA5xGDQc4zLDRsqgEGQor/view?usp=sharing" 
+    # ✅ FIXED: Only the FILE ID, not the full URL
+    GDRIVE_FILE_ID = "1Oparm6c06aFFA5xGDQc4zLDRsqgEGQor"  # Just the ID!
     gdrive_url = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
+    
+    # Helper function to download with confirmation token handling
+    def download_file_from_google_drive(file_id, destination):
+        """Downloads large files from Google Drive bypassing virus scan page"""
+        print(f"📥 Downloading from Google Drive (File ID: {file_id})...")
+        
+        # First request to get confirmation token
+        session = requests.Session()
+        response = session.get(f"https://drive.google.com/uc?id={file_id}", stream=True)
+        
+        # Look for confirmation token in cookies
+        confirm_token = None
+        for key, value in response.cookies.items():
+            if key.startswith('download_warning'):
+                confirm_token = value
+                break
+        
+        # If confirmation token found, add it to the URL
+        if confirm_token:
+            print("🔄 Handling Google Drive confirmation...")
+            download_url = f"https://drive.google.com/uc?export=download&id={file_id}&confirm={confirm_token}"
+        else:
+            download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        
+        # Download the file
+        response = session.get(download_url, stream=True)
+        
+        # Save the file
+        with open(destination, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=32768):
+                if chunk:
+                    f.write(chunk)
+        
+        print(f"✅ Download saved to: {destination}")
 
     # 1. Background Google Drive Downloader (Triggers only on first deployment boot)
     if not os.path.exists(MODEL_FOLDER):
         print("📥 Model directory not found. Fetching fine-tuned weights from Google Drive...")
         try:
-            # Handles Google's large-file scanning gateway screens seamlessly
-            gdown.download(gdrive_url, ZIP_FILE_NAME, quiet=False)
+            # ✅ FIXED: Use the robust download function instead of gdown
+            download_file_from_google_drive(GDRIVE_FILE_ID, ZIP_FILE_NAME)
             
+            # Check if download was successful
+            if not os.path.exists(ZIP_FILE_NAME) or os.path.getsize(ZIP_FILE_NAME) == 0:
+                raise Exception("Downloaded file is empty or missing")
+            
+            print(f"📦 Download size: {os.path.getsize(ZIP_FILE_NAME) / (1024*1024):.2f} MB")
             print("📦 Unpacking model architecture layers...")
+            
             with zipfile.ZipFile(ZIP_FILE_NAME, 'r') as zip_ref:
                 zip_ref.extractall(".")
                 
@@ -47,6 +88,7 @@ def load_sinhala_ocr_model():
     model.eval()
 
     # 3. Locked Generation Profile to Prevent Stutter Loops & Trailing Hallucinations
+    # ⚠️ NOT CHANGED - Your exact generation config preserved
     tight_generation_config = GenerationConfig(
         bos_token_id=processor.tokenizer.cls_token_id,
         pad_token_id=processor.tokenizer.pad_token_id,
