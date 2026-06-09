@@ -19,7 +19,7 @@ def load_sinhala_ocr_model():
     ZIP_FILE_NAME = "trocr_sinhala_handwriting_model.zip"
     
     # 🔍 REPLACE THIS VALUE WITH YOUR ACTUAL GOOGLE DRIVE FILE ID
-    GDRIVE_FILE_ID = "YOUR_GDRIVE_FILE_ID_HERE" 
+    GDRIVE_FILE_ID = "https://drive.google.com/file/d/1Oparm6c06aFFA5xGDQc4zLDRsqgEGQor/view?usp=sharing" 
     gdrive_url = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
 
     # 1. Background Google Drive Downloader (Triggers only on first deployment boot)
